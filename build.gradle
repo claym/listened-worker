@@ -1,5 +1,5 @@
 group = 'io.listened'
-version = '1.0'
+version = '1.0.0'
 
 buildscript {
     ext {
@@ -27,8 +27,8 @@ apply plugin: 'git-repo'
 
 
 jar {
-    baseName = 'ListenedWorker'
-    version = '0.0.1-SNAPSHOT'
+    baseName = 'listened-worker'
+    version = '1.0.0'
 }
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
@@ -36,20 +36,20 @@ targetCompatibility = 1.8
 repositories {
     mavenCentral()
     maven { url 'https://oss.sonatype.org/content/repositories/snapshots/' }
-	git("https://github.com/claym/listenedapi.git", "my-repo", "master", "releases")
+	git("https://github.com/claym/listened-api.git", "listened-api", "master", "releases")
 	//github("claym", "io.listened", "master", "releases")
 }
 
 
 dependencies {
-    //compile("org.springframework.boot:spring-boot-starter-amqp")
+    compile("org.springframework.boot:spring-boot-starter-amqp")
      //compile("org.springframework.cloud:spring-cloud-starter-oauth2")
-    //compile("org.springframework.security.oauth:spring-security-oauth2:$springSecurityOauth2Version")
+    compile("org.springframework.security.oauth:spring-security-oauth2:$springSecurityOauth2Version")
 
      //compile("com.rometools:rome:1.6.0-SNAPSHOT")
-    //compile("com.rometools:rome-fetcher:1.6.0-SNAPSHOT")
-    //compile("com.rometools:rome-modules:1.6.0-SNAPSHOT")
-	compile("io.listened:listened-api:1.0")
+    compile("com.rometools:rome-fetcher:1.6.0-SNAPSHOT")
+    compile("com.rometools:rome-modules:1.6.0-SNAPSHOT")
+	//compile("io.listened:listened-api:1.0")
 
 
 
