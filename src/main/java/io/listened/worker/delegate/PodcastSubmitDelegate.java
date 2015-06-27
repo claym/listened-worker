@@ -55,7 +55,10 @@ public class PodcastSubmitDelegate {
 **/
         RestTemplate restTemplate = new RestTemplate();
         Podcast podcast = restTemplate.getForObject(api+"/podcast/"+podcastId, Podcast.class);
-
+        if(podcast == null) {
+            log.error("Unable to retrieve podcast %l, aborting", podcastId);
+            return;
+        }
         SyndFeedInput input = new SyndFeedInput();
         SyndFeed syndfeed = null;
         try {
