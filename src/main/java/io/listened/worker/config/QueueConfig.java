@@ -1,5 +1,6 @@
 package io.listened.worker.config;
 
+import io.listened.common.constants.JobQueues;
 import io.listened.worker.delegate.PodcastSubmitDelegate;
 import io.listened.worker.delegate.PodcastUpdateDelegate;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
@@ -17,8 +18,8 @@ import org.springframework.context.annotation.Configuration;
 @EnableRabbit
 public class QueueConfig {
 
-    public final static String podcastUpdateQueue = "job.podcast.refresh";
-    public final static String podcastSubmitQueueName = "job.podcast.add";
+    //public final static String podcastUpdateQueue = "job.podcast.refresh";
+    //public final static String podcastSubmitQueueName = "job.podcast.add";
 
     @Autowired
     PodcastSubmitDelegate podcastSubmitDelegate;
@@ -30,7 +31,7 @@ public class QueueConfig {
     SimpleMessageListenerContainer podcastUpdateContainer(ConnectionFactory connectionFactory) {
         SimpleMessageListenerContainer container = new SimpleMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
-        container.setQueueNames(podcastUpdateQueue);
+        container.setQueueNames(JobQueues.JOB_PODCAST_ADD);
         container.setMessageListener(new MessageListenerAdapter(podcastUpdateDelegate));
         return container;
     }
@@ -39,7 +40,7 @@ public class QueueConfig {
     SimpleMessageListenerContainer podcastSubmitContainer(ConnectionFactory connectionFactory) {
         SimpleMessageListenerContainer container = new SimpleMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
-        container.setQueueNames(podcastSubmitQueueName);
+        container.setQueueNames(JobQueues.JOB_PODCAST_ADD);
         container.setMessageListener(new MessageListenerAdapter(podcastSubmitDelegate));
         return container;
     }

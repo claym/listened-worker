@@ -8,6 +8,7 @@ buildscript {
     }
     repositories {
         mavenCentral()
+
     }
     dependencies {
         classpath("org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}")
@@ -21,7 +22,6 @@ apply plugin: 'idea'
 apply plugin: 'spring-boot'
 apply plugin: 'io.spring.dependency-management'
 
-
 jar {
     baseName = 'listened-worker'
     version = '1.0.0'
@@ -32,6 +32,7 @@ targetCompatibility = 1.8
 repositories {
     mavenCentral()
     maven { url 'https://oss.sonatype.org/content/repositories/snapshots/' }
+    maven { url "https://jitpack.io" }
 }
 
 
@@ -39,8 +40,14 @@ dependencies {
     compile("org.springframework.boot:spring-boot-starter-amqp")
     compile("org.springframework.security.oauth:spring-security-oauth2:$springSecurityOauth2Version")
 
+    compile("org.springframework:spring-web")
+    compile("com.fasterxml.jackson.core:jackson-databind")
+    compile("org.projectlombok:lombok:1.16.2")
+
     compile("com.rometools:rome-fetcher:1.6.0-SNAPSHOT")
     compile("com.rometools:rome-modules:1.6.0-SNAPSHOT")
+
+    compile("com.github.claym:listened-common:7a524495a6")
 
     testCompile("org.springframework.boot:spring-boot-starter-test")
 }
