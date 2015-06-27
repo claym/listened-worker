@@ -69,3 +69,16 @@ eclipse {
 task wrapper(type: Wrapper) {
     gradleVersion = '2.4'
 }
+
+task stage(type: Copy, dependsOn: [clean, build]) {
+    from jar.archivePath
+    into project.buildDir
+    rename {
+        jar.baseName + ".jar"
+    }
+}
+stage.mustRunAfter(clean)
+
+clean << {
+    project.file("${project.buildDir}/${jar.baseName}.jar").delete()
+}

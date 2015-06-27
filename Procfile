@@ -1,0 +1,1 @@
+web: java -Dserver.port=$PORT -jar build/listened-worker.jar
