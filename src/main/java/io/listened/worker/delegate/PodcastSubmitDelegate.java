@@ -20,6 +20,8 @@ import java.net.URL;
 
 /**
  * Created by Clay on 6/21/2015.
+ * Handles processing a newly submitted podcasts
+ * Processes basic podcast and episode data, fires queue jobs for NLP and keyword processing
  */
 @Component
 public class PodcastSubmitDelegate {
@@ -30,53 +32,45 @@ public class PodcastSubmitDelegate {
     private String api;
 
     public void handleMessage(Long podcastId) {
-
-/**
-        SyndFeed feed = null;
-        FeedInformation feedInfo = null;
-        try {
-            FeedFetcher feedFetcher = new HttpURLFeedFetcher();
-            System.out.println("Retrieving feed " + message);
-            feed = feedFetcher.retrieveFeed(new URL(message));
-            System.out.println("Got Feed");
-            Module module = feed.getModule("http://www.itunes.com/DTDs/Podcast-1.0.dtd");
-            System.out.println("Got Module");
-            feedInfo = (FeedInformation) module;
-            System.out.println("Converted module");
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (FeedException e) {
-            e.printStackTrace();
-        } catch (FetcherException e) {
-            e.printStackTrace();
-        }
-        System.out.println(feedInfo);
-        //System.out.println(feed);
-**/
         RestTemplate restTemplate = new RestTemplate();
+        log.info("Processing podcast %d", podcastId);
+
         Podcast podcast = restTemplate.getForObject(api+"/podcast/"+podcastId, Podcast.class);
         if(podcast == null) {
             log.error("Unable to retrieve podcast %l, aborting", podcastId);
             return;
         }
         SyndFeedInput input = new SyndFeedInput();
-        SyndFeed syndfeed = null;
+        SyndFeed feed = null;
         try {
-            syndfeed = input.build(new XmlReader(new URL(podcast.getFeedUrl())));
+            log.info("Loading podcast feed for {} {}", podcast.getId(), podcast.getFeedUrl());
+            feed = input.build(new XmlReader(new URL(podcast.getFeedUrl())));
         } catch (FeedException e) {
-            e.printStackTrace();
+            log.error("Unable to retrieve feed {}", podcast.getFeedUrl());
+            log.error(e.toString());
+            return;
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("Unable to handle feed {}", podcast.getFeedUrl());
+            log.error(e.toString());
+            return;
         }
 
-        Module module = syndfeed.getModule("http://www.itunes.com/dtds/podcast-1.0.dtd");
-        FeedInformation feedInfo = (FeedInformation) module;
-        System.out.println(feedInfo);
-        for(SyndEntry e : syndfeed.getEntries()) {
-            module = e.getModule("http://www.itunes.com/dtds/podcast-1.0.dtd");
-            EntryInformation entryInformation = (EntryInformation) module;
-            System.out.println(entryInformation);
-        }
+        Module module = feed.getModule("http://www.itunes.com/dtds/podcast-1.0.dtd");
+        FeedInformation info = (FeedInformation) module;
+        podcast.setBlock(info.getBlock());
+        podcast.setCopyright(feed.getCopyright());
+        podcast.setDescription(feed.getDescription());
+        podcast.setDocs(feed.getDocs());
+        podcast.setExplicit(info.getExplicit());
+        podcast.setLanguage(feed.getLanguage());
+        podcast.setLink(feed.getLink());
+        podcast.setPublishDate(feed.getPublishedDate());
+        podcast.setSubtitle(info.getSubtitle());
+        podcast.setSummary(info.getSummary());
+        podcast.setTitle(feed.getTitle());
+        log.info("Submitting podcast {} to {}", podcastId, api);
+        log.debug(podcast.toString());
+        restTemplate.put(api+"/podcast/"+podcastId, podcast);
     }
 
 }
