@@ -47,7 +47,9 @@ dependencies {
     compile("com.rometools:rome-fetcher:1.6.0-SNAPSHOT")
     compile("com.rometools:rome-modules:1.6.0-SNAPSHOT")
 
-    compile("com.github.claym:listened-common:e6a819d18e")
+    compile("commons-io:commons-io:2.4")
+
+    compile("com.github.claym:listened-common:-SNAPSHOT") { changing = true }
 
     testCompile("org.springframework.boot:spring-boot-starter-test")
 }

@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
@@ -23,7 +24,7 @@ import java.net.URL;
  * Handles processing a newly submitted podcasts
  * Processes basic podcast and episode data, fires queue jobs for NLP and keyword processing
  */
-@Component
+@Service
 public class PodcastSubmitDelegate {
 
     private static final Logger log = LoggerFactory.getLogger(PodcastSubmitDelegate.class);

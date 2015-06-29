@@ -1,11 +1,12 @@
 package io.listened.worker.delegate;
 
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 /**
  * Created by Clay on 6/21/2015.
  */
-@Component
+@Service
 public class PodcastUpdateDelegate {
 
 
