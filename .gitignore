@@ -55,6 +55,7 @@ crashlytics-build.properties
 .mtj.tmp/
 
 # Package Files #
+/src/test/resources/test.properties
 *.jar
 *.war
 *.ear

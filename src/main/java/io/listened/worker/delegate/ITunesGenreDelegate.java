@@ -3,13 +3,13 @@ package io.listened.worker.delegate;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.listened.common.model.Genre;
-import io.listened.worker.util.GenreUtil;
+import io.listened.worker.service.GenreService;
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
 import java.net.URL;
@@ -24,8 +24,8 @@ public class ITunesGenreDelegate {
     @Value("${itunes.url.genre}")
     private String iTunesGenreUrl;
 
-    @Value("${listened.api.url}")
-    private String api;
+    @Autowired
+    GenreService genreService;
 
     public void handleMessage(String message) {
         try {
@@ -36,7 +36,7 @@ public class ITunesGenreDelegate {
             // use the ObjectMapper to read the json string and create a tree
             JsonNode node = mapper.readTree(genreJson);
             log.debug("Got genre tree:");
-            Genre g = GenreUtil.mapGenre(api, null, node.elements().next());
+            Genre g = genreService.mapGenre(null, node.elements().next());
         } catch (IOException e) {
             log.error("Unable to load itunes genres from {}", iTunesGenreUrl);
             log.error(e.getMessage());

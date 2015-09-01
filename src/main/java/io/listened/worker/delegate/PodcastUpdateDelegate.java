@@ -1,6 +1,10 @@
 package io.listened.worker.delegate;
 
-import org.springframework.stereotype.Component;
+import io.listened.worker.service.GenreService;
+import io.listened.worker.service.PodcastService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -8,10 +12,24 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class PodcastUpdateDelegate {
+    private static final Logger log = LoggerFactory.getLogger(PodcastSubmitDelegate.class);
+
+    @Autowired
+    private GenreService genreService;
+
+    @Autowired
+    private PodcastService podcastService;
 
 
-    public void handleMessage(String message) {
-        System.out.println(this.getClass().toGenericString() + " " + message);
+    public void handleMessage(Long podcastId) {
+        log.info("Handling podcast %d", podcastId);
+        try {
+            podcastService.processPodcast(podcastId, false);
+            log.info("Finished handling podcast %d", podcastId);
+        } catch (Exception e) {
+            log.error("Error handling podcast %d", podcastId);
+            e.printStackTrace();
+        }
     }
 
 }
