@@ -23,6 +23,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /**
@@ -62,7 +63,7 @@ public class GenreService {
         //String link = t.follow("genre", "search", "findByNameIgnoreCase").withTemplateParameters(ImmutableMap.of("name", genreName)).follow(Link.REL_SELF).asLink().getHref();
         **/
 
-        genreName = URLEncoder.encode(genreName, "utf-8");
+        genreName = URLEncoder.encode(genreName, StandardCharsets.UTF_8.toString());
         Traverson t = new Traverson(new URI(api+"/genre/search/findByName?name="+genreName), MediaTypes.HAL_JSON);
         String link = t.follow(Link.REL_SELF).asLink().getHref();
         return link;

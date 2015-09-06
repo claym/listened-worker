@@ -61,7 +61,7 @@ public class ListenedWorkerApplicationTests {
 		Podcast p = new Podcast();
 		p = podcastService.mapPodcast(p, feed);
 		log.info(p.toString());
-		Episode e = episodeService.mapEpisode(feed.getEntries().get(0));
+		Episode e = episodeService.mapEpisode(feed.getEntries().get(0), new Episode());
 		log.info(e.toString());
 
 	}

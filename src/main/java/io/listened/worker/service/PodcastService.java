@@ -14,11 +14,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.hateoas.Link;
+import org.springframework.hateoas.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
+import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
@@ -35,35 +37,37 @@ public class PodcastService {
     EpisodeService episodeService;
     @Autowired
     RestTemplate restTemplate;
+
     @Value("${listened.api.url}")
     private String api;
 
     public void processPodcast(Long podcastId, boolean forceAll) {
 
         Podcast podcast = restTemplate.getForObject(api + "/podcast/{podcastId}", Podcast.class, podcastId);
-        List<Episode> existingEpisodes = podcast.getEpisodes();
         podcast.setStatus(Podcast.STATUS_PROCESSING);
-        boolean isNew = false;
-        if (podcast.getLastProcessed() == null) {
-            isNew = true;
-        }
         SyndFeed feed;
         try {
             feed = retrieveFeed(podcast.getFeedUrl());
             podcast = mapPodcast(podcast, feed);
+            log.info("Submitting podcast {} to {}", podcast.getId(), api);
+            log.debug(podcast.toString());
+            restTemplate.put(api + "/podcast/" + podcastId, podcast);
             List<SyndEntry> entries = feed.getEntries();
-            List<Episode> episodes = new ArrayList<>();
+
             for (SyndEntry entry : entries) {
-                Episode episode = null;
-                try {
-                    episode = episodeService.mapEpisode(entry);
-                    episodes.add(episode);
-
-                } catch (URISyntaxException e) {
-                    log.error("Error retrieving episode {} {} from API", podcastId, entry.getUri());
-                    log.error(e.toString());
+                /**
+                Resource<Episode> episodeResource = episodeService.findByGuid(entry.getUri());
+                Episode episode = episodeResource.getContent();
+                String episodeLocation = episodeResource.getLink(Link.REL_SELF).toString();
+                if (episode == null) {
+                    log.info("Creating new episode for guid {}" + entry.getUri());
+                    URI episodeUri = restTemplate.postForLocation(api + "/{}", new Episode(), "episode");
+                    log.info("Got new location uri {}", episodeUri);
+                    episodeLocation = episodeUri.toString();
                 }
-
+                episode = episodeService.mapEpisode(entry, episode);
+                restTemplate.put(URI.create(episodeLocation), episode);
+                 **/
             }
             podcast.setStatus(Podcast.STATUS_COMPLETED);
             podcast.setLastProcessed(new Date());
@@ -76,11 +80,6 @@ public class PodcastService {
             log.error(e.toString());
             return;
         }
-
-        log.info("Submitting podcast {} to {}", podcast.getId(), api);
-        log.debug(podcast.toString());
-
-        restTemplate.put(api + "/podcast/" + podcastId, podcast);
         return;
 
     }

@@ -1,28 +1,24 @@
 package io.listened.worker.service;
 
 import com.rometools.modules.itunes.EntryInformation;
-import com.rometools.modules.itunes.FeedInformation;
 import com.rometools.modules.itunes.ITunes;
 import com.rometools.rome.feed.synd.SyndEnclosure;
 import com.rometools.rome.feed.synd.SyndEntry;
 import io.listened.common.model.podcast.Episode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.hateoas.Link;
-import org.springframework.hateoas.MediaTypes;
-import org.springframework.hateoas.PagedResources;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.hateoas.Resource;
-import org.springframework.hateoas.client.Traverson;
-import org.springframework.hateoas.mvc.TypeReferences.PagedResourcesType;
-import org.springframework.http.RequestEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.UnsupportedEncodingException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -37,38 +33,56 @@ public class EpisodeService {
     @Value("${listened.api.url}")
     private String api;
 
-    public Episode mapEpisode(SyndEntry entry) throws UnsupportedEncodingException, URISyntaxException {
+    /**
+     * @param entry   - SyndFeed from Rome Tools
+     * @param episode - existing, database stored episode. If null, IllegalArugment will be thrown
+     * @return
+     * @throws UnsupportedEncodingException
+     * @throws URISyntaxException
+     */
+    public Episode mapEpisode(SyndEntry entry, Episode episode) {
+        if (episode == null) throw new IllegalArgumentException("Episode object must not be null");
+
         EntryInformation info = (EntryInformation) entry.getModule(ITunes.URI);
-        Episode e = findByGuid(entry.getUri());
-        if (e == null) {
-            e = new Episode();
-        }
-        e.setBlock(info.getBlock());
-        e.setComments(entry.getComments());
+
+        episode.setGuid(entry.getUri());
+        episode.setBlock(info.getBlock());
+        episode.setComments(entry.getComments());
         if (entry.getDescription() != null) {
-            e.setDescription(entry.getDescription().getValue());
+            episode.setDescription(entry.getDescription().getValue());
         }
-        e.setExplicit(info.getExplicit());
-        e.setLink(entry.getLink());
-        e.setPublishedDate(entry.getPublishedDate());
-        e.setUpdatedDate(entry.getUpdatedDate());
-        e.setSummary(info.getSummary());
-        e.setTitle(entry.getTitle());
+        episode.setExplicit(info.getExplicit());
+        episode.setLink(entry.getLink());
+        episode.setPublishedDate(entry.getPublishedDate());
+        episode.setUpdatedDate(entry.getUpdatedDate());
+        episode.setSummary(info.getSummary());
+        episode.setTitle(entry.getTitle());
 
         // enclosure
         List<SyndEnclosure> enclosures = entry.getEnclosures();
         if (enclosures != null && !enclosures.isEmpty()) {
             SyndEnclosure enclosure = enclosures.get(0);
-            e.setType(enclosure.getType());
-            e.setUrl(enclosure.getUrl());
-            e.setLength(enclosure.getLength());
+            episode.setType(enclosure.getType());
+            episode.setUrl(enclosure.getUrl());
+            episode.setLength(enclosure.getLength());
         }
-        return e;
+        return episode;
     }
 
-    public Episode findByGuid(String guid) throws UnsupportedEncodingException, URISyntaxException {
-        guid = URLEncoder.encode(guid, "utf-8");
-        Episode episode = restTemplate.getForObject(api+"/episode/search/findByGuid?guid=", Episode.class, guid);
-        return episode;
+    public Resource<Episode> findByGuid(String guid) throws UnsupportedEncodingException {
+        guid = URLEncoder.encode(guid, StandardCharsets.UTF_8.toString());
+        String lookupUrl = api + "/episode/search/findByGuid?guid={guid}";
+        guid = URLEncoder.encode(guid, StandardCharsets.UTF_8.toString());
+        ParameterizedTypeReference<Resource<Episode>> resourceParameterizedTypeReference = new ParameterizedTypeReference<Resource<Episode>>() {};
+        try {
+            ResponseEntity<Resource<Episode>> responseEntity = restTemplate.exchange(lookupUrl, HttpMethod.GET,
+                    null, resourceParameterizedTypeReference, guid);
+            return responseEntity.getBody();
+        } catch(HttpClientErrorException ex) {
+            if(ex.getStatusCode().is4xxClientError()) {
+                return null;
+            }
+            throw ex;
+        }
     }
 }
