@@ -40,12 +40,12 @@ public class PodcastSubmitDelegate {
 
     public void handleMessage(Long podcastId) {
 
-        log.info("Handling podcast %d", podcastId);
+        log.info("Handling podcast {}", podcastId);
         try {
             podcastService.processPodcast(podcastId, true);
-            log.info("Finished handling podcast %d", podcastId);
+            log.info("Finished handling podcast {}", podcastId);
         } catch (Exception e) {
-            log.error("Error handling podcast %d", podcastId);
+            log.error("Error handling podcast {}", podcastId);
             e.printStackTrace();
         }
 

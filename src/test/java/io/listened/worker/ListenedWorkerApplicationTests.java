@@ -12,12 +12,21 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.SpringApplicationConfiguration;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.hateoas.Resource;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.util.Assert;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.net.URI;
 import java.net.URISyntaxException;
 @Slf4j
 @RunWith(SpringJUnit4ClassRunner.class)
@@ -33,6 +42,12 @@ public class ListenedWorkerApplicationTests {
 
 	@Autowired
 	EpisodeService episodeService;
+
+	@Autowired
+	RestTemplate restTemplate;
+
+	@Value("${listened.api.url}")
+	private String api;
 
 	@Test
 	public void contextLoads() {
@@ -64,6 +79,26 @@ public class ListenedWorkerApplicationTests {
 		Episode e = episodeService.mapEpisode(feed.getEntries().get(0), new Episode());
 		log.info(e.toString());
 
+	}
+
+	@Test
+	public void restTemplateResource404() {
+		String lookupUrl = api + "/episode/search/findResourceByGuid?guid=12345";
+		ParameterizedTypeReference<Resource<Episode>> resourceParameterizedTypeReference = new ParameterizedTypeReference<Resource<Episode>>() {
+		};
+		try {
+			ResponseEntity<Resource<Episode>> responseEntity = restTemplate.exchange(URI.create(lookupUrl), HttpMethod.GET,
+					null, resourceParameterizedTypeReference);
+		} catch (HttpClientErrorException ex) {
+			Assert.isTrue(ex.getStatusCode().value() == 404);
+		}
+		/**
+		 Assert.notNull(responseEntity);
+		 Assert.notNull(responseEntity.getBody());
+		 Assert.notNull(responseEntity.getBody().getContent());
+		 Assert.isTrue(WIDGET_NAME.equals(responseEntity.getBody().getContent().getName()));
+		 Assert.isTrue(lookupUrl.equals(responseEntity.getBody().getLink(Link.REL_SELF).getHref()));
+		 **/
 	}
 
 }

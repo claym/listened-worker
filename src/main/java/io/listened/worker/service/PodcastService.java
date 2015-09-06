@@ -14,15 +14,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.hateoas.Link;
 import org.springframework.hateoas.Resource;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -42,35 +45,44 @@ public class PodcastService {
     private String api;
 
     public void processPodcast(Long podcastId, boolean forceAll) {
-
-        Podcast podcast = restTemplate.getForObject(api + "/podcast/{podcastId}", Podcast.class, podcastId);
+        Resource<Podcast> podcastResource = this.getPodcastResource(podcastId);
+        Podcast podcast = podcastResource.getContent();
+        String podcastLocation = podcastResource.getLink(Link.REL_SELF).getHref();
         podcast.setStatus(Podcast.STATUS_PROCESSING);
         SyndFeed feed;
         try {
             feed = retrieveFeed(podcast.getFeedUrl());
             podcast = mapPodcast(podcast, feed);
-            log.info("Submitting podcast {} to {}", podcast.getId(), api);
+            podcast.setStatus(Podcast.STATUS_COMPLETED);
+            podcast.setLastProcessed(new Date());
+            log.info("Submitting podcast {} to {}", podcastId, api);
             log.debug(podcast.toString());
             restTemplate.put(api + "/podcast/" + podcastId, podcast);
             List<SyndEntry> entries = feed.getEntries();
 
             for (SyndEntry entry : entries) {
-                /**
-                Resource<Episode> episodeResource = episodeService.findByGuid(entry.getUri());
-                Episode episode = episodeResource.getContent();
-                String episodeLocation = episodeResource.getLink(Link.REL_SELF).toString();
-                if (episode == null) {
+                Episode episode = null;
+                String episodeLocation = null;
+                Resource<Episode> episodeResource = episodeService.findResourceByGuid(podcastId, entry.getUri());
+                if (episodeResource == null) {
                     log.info("Creating new episode for guid {}" + entry.getUri());
-                    URI episodeUri = restTemplate.postForLocation(api + "/{}", new Episode(), "episode");
+                    episode = new Episode();
+                    episode.setGuid(entry.getUri());
+                    URI episodeUri = restTemplate.postForLocation(api + "/{episode}", episode, "episode");
                     log.info("Got new location uri {}", episodeUri);
                     episodeLocation = episodeUri.toString();
+                } else {
+                    episodeLocation = episodeResource.getLink(Link.REL_SELF).toString();
+                    log.info("Updating existing episode: {}", episodeLocation);
+                    episode = episodeResource.getContent();
                 }
                 episode = episodeService.mapEpisode(entry, episode);
+                episode.setLastProcessed(new Date());
+                log.debug("Updating episode: {}", episodeLocation);
                 restTemplate.put(URI.create(episodeLocation), episode);
-                 **/
+                episodeResource = episodeService.getEpisodeResource(episodeLocation);
+                episodeService.associateEpisode(podcastLocation, episodeResource.getLink("podcast").getHref());
             }
-            podcast.setStatus(Podcast.STATUS_COMPLETED);
-            podcast.setLastProcessed(new Date());
         } catch (FeedException e) {
             log.error("Unable to retrieve feed {}", podcast.getFeedUrl());
             log.error(e.toString());
@@ -82,6 +94,26 @@ public class PodcastService {
         }
         return;
 
+    }
+
+    private Resource<Podcast> getPodcastResource(Long podcastId) {
+        String lookupUrl = api + "/podcast/" + podcastId;
+        return getPodcastResource(lookupUrl);
+    }
+
+    private Resource<Podcast> getPodcastResource(String podcastLocation) {
+        ParameterizedTypeReference<Resource<Podcast>> resourceParameterizedTypeReference = new ParameterizedTypeReference<Resource<Podcast>>() {
+        };
+        try {
+            ResponseEntity<Resource<Podcast>> responseEntity = restTemplate.exchange(podcastLocation, HttpMethod.GET,
+                    null, resourceParameterizedTypeReference);
+            return responseEntity.getBody();
+        } catch (HttpClientErrorException ex) {
+            if (ex.getStatusCode().is4xxClientError()) {
+                return null;
+            }
+            throw ex;
+        }
     }
 
     public SyndFeed retrieveFeed(String feedUrl) throws FeedException, IOException {
