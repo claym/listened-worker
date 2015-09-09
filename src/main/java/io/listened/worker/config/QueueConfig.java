@@ -2,6 +2,7 @@ package io.listened.worker.config;
 
 import io.listened.common.constants.JobQueues;
 import io.listened.worker.delegate.ITunesGenreDelegate;
+import io.listened.worker.delegate.PodcastRefreshDelegate;
 import io.listened.worker.delegate.PodcastSubmitDelegate;
 import io.listened.worker.delegate.PodcastUpdateDelegate;
 import org.slf4j.Logger;
@@ -35,15 +36,29 @@ public class QueueConfig {
     PodcastUpdateDelegate podcastUpdateDelegate;
 
     @Autowired
+    PodcastRefreshDelegate podcastRefreshDelegate;
+
+    @Autowired
     ITunesGenreDelegate iTunesGenreDelegate;
+
 
     @Bean
     SimpleMessageListenerContainer podcastUpdateContainer(ConnectionFactory connectionFactory) {
+        verifyQueue(JobQueues.JOB_PODCAST_UPDATE, connectionFactory);
+        SimpleMessageListenerContainer container = new SimpleMessageListenerContainer();
+        container.setConnectionFactory(connectionFactory);
+        container.setQueueNames(JobQueues.JOB_PODCAST_UPDATE);
+        container.setMessageListener(new MessageListenerAdapter(podcastUpdateDelegate));
+        return container;
+    }
+
+    @Bean
+    SimpleMessageListenerContainer podcastRefreshContainer(ConnectionFactory connectionFactory) {
         verifyQueue(JobQueues.JOB_PODCAST_REFRESH, connectionFactory);
         SimpleMessageListenerContainer container = new SimpleMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
-        container.setQueueNames(JobQueues.JOB_PODCAST_ADD);
-        container.setMessageListener(new MessageListenerAdapter(podcastUpdateDelegate));
+        container.setQueueNames(JobQueues.JOB_PODCAST_REFRESH);
+        container.setMessageListener(new MessageListenerAdapter(podcastRefreshDelegate));
         return container;
     }
 

@@ -10,6 +10,9 @@ import com.rometools.rome.io.SyndFeedInput;
 import com.rometools.rome.io.XmlReader;
 import io.listened.common.model.podcast.Episode;
 import io.listened.common.model.podcast.Podcast;
+import io.listened.worker.util.TextUtils;
+import org.jsoup.Jsoup;
+import org.jsoup.examples.HtmlToPlainText;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +48,10 @@ public class PodcastService {
     private String api;
 
     public void processPodcast(Long podcastId, boolean forceAll) {
+        if(forceAll) {
+            log.info("Performaing full refresh on {}", podcastId);
+        }
+        Date processTime = new Date();
         Resource<Podcast> podcastResource = this.getPodcastResource(podcastId);
         Podcast podcast = podcastResource.getContent();
         String podcastLocation = podcastResource.getLink(Link.REL_SELF).getHref();
@@ -54,7 +61,7 @@ public class PodcastService {
             feed = retrieveFeed(podcast.getFeedUrl());
             podcast = mapPodcast(podcast, feed);
             podcast.setStatus(Podcast.STATUS_COMPLETED);
-            podcast.setLastProcessed(new Date());
+            podcast.setLastProcessed(processTime);
             log.info("Submitting podcast {} to {}", podcastId, api);
             log.debug(podcast.toString());
             restTemplate.put(api + "/podcast/" + podcastId, podcast);
@@ -77,11 +84,12 @@ public class PodcastService {
                     episode = episodeResource.getContent();
                 }
                 episode = episodeService.mapEpisode(entry, episode);
-                episode.setLastProcessed(new Date());
+                episode.setLastProcessed(processTime);
                 log.debug("Updating episode: {}", episodeLocation);
                 restTemplate.put(URI.create(episodeLocation), episode);
                 episodeResource = episodeService.getEpisodeResource(episodeLocation);
                 episodeService.associateEpisode(podcastLocation, episodeResource.getLink("podcast").getHref());
+
             }
         } catch (FeedException e) {
             log.error("Unable to retrieve feed {}", podcast.getFeedUrl());
@@ -126,16 +134,16 @@ public class PodcastService {
         Module module = feed.getModule(ITunes.URI);
         FeedInformation info = (FeedInformation) module;
         podcast.setBlock(info.getBlock());
-        podcast.setCopyright(feed.getCopyright());
-        podcast.setDescription(feed.getDescription());
+        podcast.setCopyright(TextUtils.removeHtml(feed.getCopyright()));
+        podcast.setDescription(TextUtils.removeHtml(feed.getDescription()));
         podcast.setDocs(feed.getDocs());
         podcast.setExplicit(info.getExplicit());
         podcast.setLanguage(feed.getLanguage());
         podcast.setLink(feed.getLink());
         podcast.setPublishDate(feed.getPublishedDate());
-        podcast.setSubtitle(info.getSubtitle());
-        podcast.setSummary(info.getSummary());
-        podcast.setTitle(feed.getTitle());
+        podcast.setSubtitle(TextUtils.removeHtml(info.getSubtitle()));
+        podcast.setSummary(TextUtils.removeHtml(info.getSummary()));
+        podcast.setTitle(TextUtils.removeHtml(feed.getTitle()));
         return podcast;
     }
 }

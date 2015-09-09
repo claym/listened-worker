@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
  * Created by Clay on 6/21/2015.
  */
 @Service
-public class PodcastUpdateDelegate {
+public class PodcastRefreshDelegate {
     private static final Logger log = LoggerFactory.getLogger(PodcastSubmitDelegate.class);
 
     @Autowired
@@ -22,12 +22,12 @@ public class PodcastUpdateDelegate {
 
 
     public void handleMessage(Long podcastId) {
-        log.info("Updating podcast {}", podcastId);
+        log.info("Refreshing podcast {}", podcastId);
         try {
-            podcastService.processPodcast(podcastId, false);
-            log.info("Finished updating podcast {}", podcastId);
+            podcastService.processPodcast(podcastId, true);
+            log.info("Finished refreshing podcast {}", podcastId);
         } catch (Exception e) {
-            log.error("Error updating podcast {}", podcastId);
+            log.error("Error refreshing podcast {}", podcastId);
             e.printStackTrace();
         }
     }

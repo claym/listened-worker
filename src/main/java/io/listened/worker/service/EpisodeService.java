@@ -6,7 +6,10 @@ import com.rometools.modules.itunes.ITunes;
 import com.rometools.rome.feed.synd.SyndEnclosure;
 import com.rometools.rome.feed.synd.SyndEntry;
 import io.listened.common.model.podcast.Episode;
+import io.listened.worker.util.TextUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.Jsoup;
+import org.jsoup.examples.HtmlToPlainText;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -16,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import javax.validation.constraints.NotNull;
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
@@ -38,27 +42,27 @@ public class EpisodeService {
     /**
      * @param entry   - SyndFeed from Rome Tools
      * @param episode - existing, database stored episode. If null, IllegalArugment will be thrown
-     * @return
+     * @return populated Episode item
      * @throws UnsupportedEncodingException
      * @throws URISyntaxException
      */
-    public Episode mapEpisode(SyndEntry entry, Episode episode) {
-        if (episode == null) throw new IllegalArgumentException("Episode object must not be null");
+    public Episode mapEpisode(@NotNull SyndEntry entry, @NotNull Episode episode) {
+        // if (episode == null) throw new IllegalArgumentException("Episode object must not be null");
 
         EntryInformation info = (EntryInformation) entry.getModule(ITunes.URI);
 
         episode.setGuid(entry.getUri());
         episode.setBlock(info.getBlock());
-        episode.setComments(entry.getComments());
+        episode.setComments(TextUtils.removeHtml(entry.getComments()));
         if (entry.getDescription() != null) {
-            episode.setDescription(entry.getDescription().getValue());
+            episode.setDescription(TextUtils.removeHtml(entry.getDescription().getValue()));
         }
         episode.setExplicit(info.getExplicit());
         episode.setLink(entry.getLink());
         episode.setPublishedDate(entry.getPublishedDate());
         episode.setUpdatedDate(entry.getUpdatedDate());
-        episode.setSummary(info.getSummary());
-        episode.setTitle(entry.getTitle());
+        episode.setSummary(TextUtils.removeHtml(info.getSummary()));
+        episode.setTitle(TextUtils.removeHtml(entry.getTitle()));
 
         // enclosure
         List<SyndEnclosure> enclosures = entry.getEnclosures();
@@ -74,7 +78,7 @@ public class EpisodeService {
     public Resource<Episode> findResourceByGuid(Long podcastId, String guid) throws UnsupportedEncodingException {
         log.info("Looking for episode with podcastid = {}, guid = {}", podcastId, guid);
         guid = URLEncoder.encode(guid, StandardCharsets.UTF_8.toString());
-        String lookupUrl = api + "/episode/search/findResourceByGuid?podcastId={podcastId}, guid={guid}";
+        String lookupUrl = api + "/episode/search/findResourceByGuid?podcastId={podcastId}&guid={guid}";
         guid = URLEncoder.encode(guid, StandardCharsets.UTF_8.toString());
         ParameterizedTypeReference<Resource<Episode>> resourceParameterizedTypeReference = new ParameterizedTypeReference<Resource<Episode>>() {
         };
