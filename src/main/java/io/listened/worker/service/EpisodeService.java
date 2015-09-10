@@ -33,12 +33,6 @@ import java.util.List;
 @Service
 public class EpisodeService {
 
-    @Autowired
-    RestTemplate restTemplate;
-
-    @Value("${listened.api.url}")
-    private String api;
-
     /**
      * @param entry   - SyndFeed from Rome Tools
      * @param episode - existing, database stored episode. If null, IllegalArugment will be thrown
@@ -46,7 +40,7 @@ public class EpisodeService {
      * @throws UnsupportedEncodingException
      * @throws URISyntaxException
      */
-    public Episode mapEpisode(@NotNull SyndEntry entry, @NotNull Episode episode) {
+    public Episode mapEpisode(@NotNull Episode episode, @NotNull SyndEntry entry) {
         // if (episode == null) throw new IllegalArgumentException("Episode object must not be null");
 
         EntryInformation info = (EntryInformation) entry.getModule(ITunes.URI);
@@ -63,7 +57,7 @@ public class EpisodeService {
         episode.setUpdatedDate(entry.getUpdatedDate());
         episode.setSummary(TextUtils.removeHtml(info.getSummary()));
         episode.setTitle(TextUtils.removeHtml(entry.getTitle()));
-
+        episode.setAuthor(TextUtils.removeHtml(info.getAuthor()));
         // enclosure
         List<SyndEnclosure> enclosures = entry.getEnclosures();
         if (enclosures != null && !enclosures.isEmpty()) {
@@ -75,6 +69,7 @@ public class EpisodeService {
         return episode;
     }
 
+/**
     public Resource<Episode> findResourceByGuid(Long podcastId, String guid) throws UnsupportedEncodingException {
         log.info("Looking for episode with podcastid = {}, guid = {}", podcastId, guid);
         guid = URLEncoder.encode(guid, StandardCharsets.UTF_8.toString());
@@ -123,4 +118,5 @@ public class EpisodeService {
         ResponseEntity<String> string = restTemplate.exchange(episodeLocation, HttpMethod.PUT, reqEntity, String.class, ImmutableMap.of());
         log.info("Returned string: {}" + string);
     }
+**/
 }

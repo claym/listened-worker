@@ -2,6 +2,7 @@ package io.listened.worker;
 
 import com.rometools.rome.feed.synd.SyndFeed;
 import com.rometools.rome.io.FeedException;
+import io.listened.common.model.Genre;
 import io.listened.common.model.podcast.Episode;
 import io.listened.common.model.podcast.Podcast;
 import io.listened.worker.ListenedWorker;
@@ -55,14 +56,14 @@ public class ListenedWorkerApplicationTests {
 
 	@Test
 	public void cacheTest() throws UnsupportedEncodingException, URISyntaxException {
-		String tv = genreService.getGenreLocation("TV & Film");
+		Long tv = genreService.getGenreId("TV & Film");
 		assert tv != null;
 		log.info("TV & Film: {}", tv);
 
-		String games = genreService.getGenreLocation("Games & Hobbies");
+		Long games = genreService.getGenreId("Games & Hobbies");
 		assert games != null;
 
-		String vgs = genreService.getGenreLocation("Video Games");
+		Long vgs = genreService.getGenreId("Video Games");
 		assert vgs != null;
 
 		log.info("TV & Film: {}", tv);
@@ -76,7 +77,7 @@ public class ListenedWorkerApplicationTests {
 		Podcast p = new Podcast();
 		p = podcastService.mapPodcast(p, feed);
 		log.info(p.toString());
-		Episode e = episodeService.mapEpisode(feed.getEntries().get(0), new Episode());
+		Episode e = episodeService.mapEpisode(new Episode(), feed.getEntries().get(0));
 		log.info(e.toString());
 
 	}

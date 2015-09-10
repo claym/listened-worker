@@ -1,5 +1,6 @@
 package io.listened.worker.service;
 
+import com.rometools.modules.itunes.EntryInformation;
 import com.rometools.modules.itunes.FeedInformation;
 import com.rometools.modules.itunes.ITunes;
 import com.rometools.rome.feed.module.Module;
@@ -10,24 +11,16 @@ import com.rometools.rome.io.SyndFeedInput;
 import com.rometools.rome.io.XmlReader;
 import io.listened.common.model.podcast.Episode;
 import io.listened.common.model.podcast.Podcast;
+import io.listened.worker.repo.EpisodeRepo;
+import io.listened.worker.repo.PodcastRepo;
 import io.listened.worker.util.TextUtils;
-import org.jsoup.Jsoup;
-import org.jsoup.examples.HtmlToPlainText;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.hateoas.Link;
-import org.springframework.hateoas.Resource;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
 
+import javax.validation.constraints.NotNull;
 import java.io.IOException;
-import java.net.URI;
 import java.net.URL;
 import java.util.Date;
 import java.util.List;
@@ -42,86 +35,77 @@ public class PodcastService {
     @Autowired
     EpisodeService episodeService;
     @Autowired
-    RestTemplate restTemplate;
+    PodcastRepo podcastRepo;
+    @Autowired
+    EpisodeRepo episodeRepo;
+    @Autowired
+    ITunesService iTunesService;
+    @Autowired
+    GenreService genreService;
+    @Autowired
+    KeywordService keywordService;
 
-    @Value("${listened.api.url}")
-    private String api;
-
-    public void processPodcast(Long podcastId, boolean forceAll) {
-        if(forceAll) {
+    public void processPodcast(Long podcastId, boolean forceUpdate) {
+        if (forceUpdate) {
             log.info("Performaing full refresh on {}", podcastId);
         }
         Date processTime = new Date();
-        Resource<Podcast> podcastResource = this.getPodcastResource(podcastId);
-        Podcast podcast = podcastResource.getContent();
-        String podcastLocation = podcastResource.getLink(Link.REL_SELF).getHref();
-        podcast.setStatus(Podcast.STATUS_PROCESSING);
-        SyndFeed feed;
+        Podcast podcast = podcastRepo.findOne(podcastId);
         try {
-            feed = retrieveFeed(podcast.getFeedUrl());
-            podcast = mapPodcast(podcast, feed);
-            podcast.setStatus(Podcast.STATUS_COMPLETED);
-            podcast.setLastProcessed(processTime);
-            log.info("Submitting podcast {} to {}", podcastId, api);
-            log.debug(podcast.toString());
-            restTemplate.put(api + "/podcast/" + podcastId, podcast);
-            List<SyndEntry> entries = feed.getEntries();
-
-            for (SyndEntry entry : entries) {
-                Episode episode = null;
-                String episodeLocation = null;
-                Resource<Episode> episodeResource = episodeService.findResourceByGuid(podcastId, entry.getUri());
-                if (episodeResource == null) {
-                    log.info("Creating new episode for guid {}" + entry.getUri());
-                    episode = new Episode();
-                    episode.setGuid(entry.getUri());
-                    URI episodeUri = restTemplate.postForLocation(api + "/{episode}", episode, "episode");
-                    log.info("Got new location uri {}", episodeUri);
-                    episodeLocation = episodeUri.toString();
-                } else {
-                    episodeLocation = episodeResource.getLink(Link.REL_SELF).toString();
-                    log.info("Updating existing episode: {}", episodeLocation);
-                    episode = episodeResource.getContent();
+            SyndFeed feed = retrieveFeed(podcast.getFeedUrl());
+            if (forceUpdate || shouldDoUpdate(podcast.getLastProcessed(), feed.getPublishedDate(), null)) {
+                podcast.setStatus(Podcast.STATUS_PROCESSING);
+                podcast = podcastRepo.save(podcast);
+                podcast = mapPodcast(podcast, feed);
+                log.info("Saving podcast {}", podcastId);
+                podcast = podcastRepo.save(podcast);
+                List<SyndEntry> entries = feed.getEntries();
+                for (SyndEntry entry : entries) {
+                    if (forceUpdate || shouldDoUpdate(podcast.getLastProcessed(), entry.getUpdatedDate(), entry.getPublishedDate())) {
+                        Episode episode = episodeRepo.findByPodcastAndGuid(podcast, entry.getUri());
+                        if (episode == null) {
+                            log.info("Creating new episode for guid {}", entry.getUri());
+                            episode = new Episode();
+                            episode.setGuid(entry.getUri());
+                        } else {
+                            log.info("Updating episode {}", entry.getUri());
+                        }
+                        episode = episodeService.mapEpisode(episode, entry);
+                        episode.setLastProcessed(processTime);
+                        episode.setPodcast(podcast);
+                        episode = episodeRepo.save(episode);
+                        EntryInformation info = (EntryInformation) entry.getModule(ITunes.URI);
+                        keywordService.linkEpisodeToKeywords(episode, info.getKeywords());
+                        ;
+                    } else {
+                        log.info("Skipping episode {}: {}, {} < {}", entry.getUri(), entry.getPublishedDate(), entry.getUpdatedDate(), podcast.getLastProcessed());
+                    }
                 }
-                episode = episodeService.mapEpisode(entry, episode);
-                episode.setLastProcessed(processTime);
-                log.debug("Updating episode: {}", episodeLocation);
-                restTemplate.put(URI.create(episodeLocation), episode);
-                episodeResource = episodeService.getEpisodeResource(episodeLocation);
-                episodeService.associateEpisode(podcastLocation, episodeResource.getLink("podcast").getHref());
-
+                FeedInformation info = (FeedInformation) feed.getModule(ITunes.URI);
+                genreService.linkPodcastToGenres(podcast, info.getCategories());
+                keywordService.linkPodcastToKeywords(podcast, info.getKeywords());
+                if (forceUpdate || podcast.getItunesId() == null) {
+                    Long iTunesId = iTunesService.findItunesId(podcast.getTitle(), podcast.getAuthor());
+                    podcast.setItunesId(iTunesId);
+                }
+                podcast.setStatus(Podcast.STATUS_COMPLETED);
+                podcast.setLastProcessed(processTime);
+                podcastRepo.save(podcast);
             }
-        } catch (FeedException e) {
+        } catch (Exception e) {
             log.error("Unable to retrieve feed {}", podcast.getFeedUrl());
             log.error(e.toString());
-            return;
-        } catch (IOException e) {
-            log.error("Unable to handle feed {}", podcast.getFeedUrl());
-            log.error(e.toString());
-            return;
         }
         return;
 
     }
 
-    private Resource<Podcast> getPodcastResource(Long podcastId) {
-        String lookupUrl = api + "/podcast/" + podcastId;
-        return getPodcastResource(lookupUrl);
-    }
-
-    private Resource<Podcast> getPodcastResource(String podcastLocation) {
-        ParameterizedTypeReference<Resource<Podcast>> resourceParameterizedTypeReference = new ParameterizedTypeReference<Resource<Podcast>>() {
-        };
-        try {
-            ResponseEntity<Resource<Podcast>> responseEntity = restTemplate.exchange(podcastLocation, HttpMethod.GET,
-                    null, resourceParameterizedTypeReference);
-            return responseEntity.getBody();
-        } catch (HttpClientErrorException ex) {
-            if (ex.getStatusCode().is4xxClientError()) {
-                return null;
-            }
-            throw ex;
-        }
+    private boolean shouldDoUpdate(@NotNull Date lastProcessed, Date updatedDate, Date publishedDate) {
+        if (updatedDate != null && lastProcessed.before(updatedDate))
+            return true;
+        if (publishedDate != null && lastProcessed.before(publishedDate))
+            return true;
+        return false;
     }
 
     public SyndFeed retrieveFeed(String feedUrl) throws FeedException, IOException {
@@ -133,6 +117,7 @@ public class PodcastService {
     public Podcast mapPodcast(Podcast podcast, SyndFeed feed) {
         Module module = feed.getModule(ITunes.URI);
         FeedInformation info = (FeedInformation) module;
+        podcast.setAuthor(TextUtils.removeHtml(info.getAuthor()));
         podcast.setBlock(info.getBlock());
         podcast.setCopyright(TextUtils.removeHtml(feed.getCopyright()));
         podcast.setDescription(TextUtils.removeHtml(feed.getDescription()));
