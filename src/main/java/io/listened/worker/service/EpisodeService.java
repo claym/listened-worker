@@ -54,7 +54,6 @@ public class EpisodeService {
         episode.setExplicit(info.getExplicit());
         episode.setLink(entry.getLink());
         episode.setPublishedDate(entry.getPublishedDate());
-        episode.setUpdatedDate(entry.getUpdatedDate());
         episode.setSummary(TextUtils.removeHtml(info.getSummary()));
         episode.setTitle(TextUtils.removeHtml(entry.getTitle()));
         episode.setAuthor(TextUtils.removeHtml(info.getAuthor()));

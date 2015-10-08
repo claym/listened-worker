@@ -4,6 +4,8 @@ import io.listened.common.model.podcast.Keyword;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 /**
  * Created by Clay on 9/9/2015.
  */
